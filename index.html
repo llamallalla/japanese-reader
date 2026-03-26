@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>読書帳</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;500&family=Shippori+Mincho:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:       #f7f4ee;
+  --card:        #ffffff;
+  --ink:         #1a1a2e;
+  --ink-mid:     #4a4860;
+  --ink-soft:    #8a8aa0;
+  --red:         #c0392b;
+  --red-bg:      rgba(192,57,43,0.09);
+  --gold:        #9a7b2e;
+  --navy:        #1a1a2e;
+  --navy-mid:    #2d2d4e;
+  --border:      rgba(26,26,46,0.09);
+  --border-soft: rgba(26,26,46,0.05);
+  --shadow-sm:   0 1px 8px rgba(0,0,0,0.06);
+  --radius:      16px;
+  --radius-sm:   10px;
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left,   0px);
+  --safe-right:  env(safe-area-inset-right,  0px);
+  --tab-h:       62px;
+  --header-h:    54px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+/* ── Top bar ── */
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding-top: var(--safe-top);
+  background: var(--navy);
+  display: flex; align-items: center;
+  padding-left: calc(18px + var(--safe-left));
+  padding-right: calc(18px + var(--safe-right));
+  padding-bottom: 12px;
+  min-height: calc(var(--header-h) + var(--safe-top));
+  gap: 10px;
+}
+.hanko {
+  width: 32px; height: 32px;
+  background: var(--red); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 16px; color: white; font-weight: 600;
+  flex-shrink: 0;
+}
+.top-bar-title {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 19px; font-weight: 500;
+  color: white; letter-spacing: 0.05em; flex: 1;
+}
+.top-bar-title em {
+  font-size: 11px; font-style: normal;
+  opacity: 0.38; margin-left: 8px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 300;
+}
+
+/* ── Scroll wrapper ── */
+.scroll-area {
+  padding-top: calc(var(--header-h) + var(--safe-top) + 12px);
+  padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 20px);
+  padding-left: calc(15px + var(--safe-left));
+  padding-right: calc(15px + var(--safe-right));
+}
+
+/* ── Bottom tab bar ── */
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--navy);
+  display: flex;
+  padding-bottom: var(--safe-bottom);
+  height: calc(var(--tab-h) + var(--safe-bottom));
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.tab-btn {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  background: none; border: none; cursor: pointer;
+  padding-top: 8px; -webkit-appearance: none;
+  transition: opacity 0.12s;
+}
+.tab-btn:active { opacity: 0.55; }
+.tab-icon {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 19px; color: rgba(255,255,255,0.3);
+  transition: color 0.15s; line-height: 1;
+}
+.tab-label {
+  font-size: 9px; color: rgba(255,255,255,0.28);
+  letter-spacing: 0.06em; transition: color 0.15s;
+}
+.tab-btn.active .tab-icon  { color: var(--red); }
+.tab-btn.active .tab-label { color: rgba(255,255,255,0.7); }
+
+/* Add button */
+.tab-btn.tab-add .tab-icon {
+  width: 40px; height: 40px;
+  background: var(--red); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: white;
+  margin-top: -10px;
+}
+
+/* ── Pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ══════════════════════════════════════
+   NOTEBOOKS PAGE
+══════════════════════════════════════ */
+.page-title {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 24px; font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 8px 0 16px;
+  line-height: 1.3;
+}
+.page-title small {
+  display: block; font-size: 13px;
+  font-weight: 400; opacity: 0.45;
+  margin-top: 3px;
+}
+
+.empty-state {
+  text-align: center; padding: 64px 24px;
+  color: var(--ink-soft);
+}
+.empty-icon { font-size: 52px; opacity: 0.2; margin-bottom: 14px; }
+.empty-state p { font-size: 14px; line-height: 1.9; }
+
+.nb-list { display: flex; flex-direction: column; gap: 11px; }
+
+.nb-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px 16px 13px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-soft);
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  /* left red line */
+}
+.nb-card::before {
+  content: ''; position: absolute;
+  left: 0; top: 14px; bottom: 14px;
+  width: 3px; background: var(--red); border-radius: 2px;
+}
+.nb-card:active { opacity: 0.8; }
+
+.nb-title {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 15px; font-weight: 500;
+  color: var(--ink); padding-left: 12px;
+  line-height: 1.45; margin-bottom: 7px;
+}
+.nb-meta {
+  padding-left: 12px;
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+}
+.nb-meta-item {
+  font-size: 11px; color: var(--ink-soft);
+}
+.nb-source {
+  font-size: 11px; color: var(--red);
+  font-weight: 500; padding-left: 12px;
+  margin-top: 5px;
+}
+.nb-del {
+  position: absolute; top: 12px; right: 12px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(26,26,46,0.06); border: none;
+  font-size: 12px; color: var(--ink-soft);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; -webkit-appearance: none;
+}
+.nb-del:active { background: var(--red-bg); color: var(--red); }
+
+/* ══════════════════════════════════════
+   PASTE PAGE
+══════════════════════════════════════ */
+.paste-desc {
+  font-size: 13px; color: var(--ink-soft);
+  line-height: 1.8; margin-bottom: 14px;
+}
+.paste-desc code {
+  font-size: 11px; background: rgba(26,26,46,0.07);
+  padding: 1px 6px; border-radius: 4px;
+  color: var(--ink-mid); font-family: monospace;
+}
+textarea {
+  width: 100%; min-height: 230px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius); padding: 15px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px; line-height: 1.75;
+  color: var(--ink); background: var(--card);
+  resize: vertical; outline: none;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+textarea:focus { border-color: var(--red); border-style: solid; }
+textarea::placeholder { color: #c0bdc8; }
+
+.btn-load {
+  width: 100%; margin-top: 12px; padding: 15px;
+  background: var(--navy); color: white; border: none;
+  border-radius: var(--radius-sm); font-size: 15px;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
+  letter-spacing: 0.04em; cursor: pointer;
+  -webkit-appearance: none; display: flex;
+  align-items: center; justify-content: center; gap: 8px;
+  transition: opacity 0.15s;
+}
+.btn-load:active { opacity: 0.75; }
+
+.parse-err {
+  margin-top: 10px; padding: 11px 14px;
+  background: var(--red-bg); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--red); display: none;
+}
+
+/* ══════════════════════════════════════
+   READER PAGE
+══════════════════════════════════════ */
+.reader-nav {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 10px;
+}
+.back-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; color: var(--ink-mid); padding: 4px 0;
+  -webkit-appearance: none; display: flex; align-items: center; gap: 4px;
+}
+.back-btn:active { opacity: 0.5; }
+
+.reader-source {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--red); margin-bottom: 3px;
+}
+.reader-title {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 17px; font-weight: 500;
+  color: var(--ink); line-height: 1.45;
+  margin-bottom: 4px;
+}
+.reader-stats { font-size: 11px; color: var(--ink-soft); margin-bottom: 16px; }
+
+/* Sentence cards */
+.s-list { display: flex; flex-direction: column; gap: 13px; }
+
+.s-card {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.s-num {
+  padding: 8px 14px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--red);
+}
+.s-jp {
+  padding: 14px 14px 10px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 20px; font-weight: 400;
+  line-height: 2.4; letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+/* Clickable word spans */
+.w {
+  cursor: pointer; border-radius: 3px;
+  padding: 0 1px;
+  transition: background 0.1s;
+}
+.w:active  { background: var(--red-bg); }
+.w.tapped  { background: var(--red); color: white; border-radius: 4px; }
+
+.s-tr {
+  padding: 9px 14px 11px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px; color: var(--ink-soft);
+  font-weight: 300; line-height: 1.75;
+  border-top: 1px solid var(--border-soft);
+}
+.s-grammar {
+  padding: 9px 14px 11px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.grammar-label {
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--gold); flex-shrink: 0; margin-top: 2px;
+}
+.grammar-text {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 13px; color: var(--ink-mid); line-height: 1.65;
+}
+
+/* ══════════════════════════════════════
+   BOTTOM SHEET
+══════════════════════════════════════ */
+.backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+  transition: background 0.25s;
+}
+.backdrop.open {
+  background: rgba(0,0,0,0.32);
+  pointer-events: all;
+}
+.sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 201;
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  padding-bottom: calc(18px + var(--safe-bottom));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 72dvh; overflow-y: auto;
+}
+.sheet.open { transform: translateY(0); }
+
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: rgba(26,26,46,0.13); border-radius: 2px;
+  margin: 11px auto 0;
+}
+.sheet-hero {
+  background: var(--navy); color: white;
+  padding: 18px 20px 16px;
+}
+.sh-word {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 34px; font-weight: 500;
+  letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.sh-reading {
+  font-size: 15px; opacity: 0.65;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 300; letter-spacing: 0.1em;
+}
+.sh-badges {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+}
+.sh-badge {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 20px;
+}
+.badge-pos  { background: var(--red); color: white; }
+.badge-dim  { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); }
+
+.sh-section { padding: 13px 20px; border-bottom: 1px solid var(--border-soft); }
+.sh-section:last-child { border-bottom: none; }
+.sh-label {
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--red); margin-bottom: 6px;
+}
+.sh-meaning {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 19px; color: var(--ink); line-height: 1.5;
+}
+.sh-note {
+  font-size: 13px; color: var(--ink-mid);
+  line-height: 1.8; margin-top: 4px;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--tab-h) + var(--safe-bottom) + 10px);
+  left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--navy); color: white;
+  font-size: 12px; padding: 9px 18px;
+  border-radius: 30px; opacity: 0; z-index: 400;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── scrollbar ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="hanko">読</div>
+  <div class="top-bar-title">読書帳 <em>Japanese Reader</em></div>
+</header>
+
+<!-- ════ PAGE: NOTEBOOKS ════ -->
+<div id="page-notebooks" class="page scroll-area">
+  <div class="page-title">ノート帳<small>Your notebooks</small></div>
+  <div id="nb-list" class="nb-list"></div>
+  <div id="nb-empty" class="empty-state" style="display:none">
+    <div class="empty-icon">本</div>
+    <p>No notebooks yet.<br>Tap <strong>＋</strong> to paste a lesson<br>from Apple Notes.</p>
+  </div>
+</div>
+
+<!-- ════ PAGE: PASTE ════ -->
+<div id="page-paste" class="page scroll-area">
+  <div class="page-title">貼り付け<small>Paste your notes</small></div>
+  <p class="paste-desc">
+    Copy a lesson from Apple Notes and paste below.
+    Your notes must be in NotebookLM format with
+    <code>[第N句]</code> blocks and <code>【🔍 单词逐击】</code> entries.
+  </p>
+  <textarea id="paste-input"
+    placeholder="Paste your NotebookLM notes here…&#10;&#10;📝 【内容来源】…&#10;[第1句]&#10;* 【原文】：…&#10;* 【🔍 单词逐击】：&#10;   * 江戸時代（えどじだい） [名词]：…"></textarea>
+  <div id="parse-err" class="parse-err"></div>
+  <button class="btn-load" onclick="handleLoad()">Load into Reader →</button>
+</div>
+
+<!-- ════ PAGE: READER ════ -->
+<div id="page-reader" class="page scroll-area">
+  <div class="reader-nav">
+    <button class="back-btn" onclick="showPage('notebooks')">← Notebooks</button>
+  </div>
+  <div id="reader-source" class="reader-source"></div>
+  <div id="reader-title"  class="reader-title"></div>
+  <div id="reader-stats"  class="reader-stats"></div>
+  <div id="s-list" class="s-list"></div>
+</div>
+
+<!-- ════ Tab bar ════ -->
+<nav class="tab-bar">
+  <button class="tab-btn" id="tab-notebooks" onclick="showPage('notebooks')">
+    <span class="tab-icon">本</span>
+    <span class="tab-label">Notebooks</span>
+  </button>
+  <button class="tab-btn tab-add" id="tab-paste" onclick="showPage('paste')">
+    <span class="tab-icon">＋</span>
+    <span class="tab-label">Add</span>
+  </button>
+  <button class="tab-btn" id="tab-reader" onclick="showPage('reader')" style="display:none">
+    <span class="tab-icon">読</span>
+    <span class="tab-label">Reading</span>
+  </button>
+</nav>
+
+<!-- ════ Bottom sheet ════ -->
+<div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  STORAGE
+// ════════════════════════════════════════════════════════
+
+function getNbs()       { try { return JSON.parse(localStorage.getItem('jrNbs')||'[]'); } catch { return []; } }
+function saveNbs(list)  { localStorage.setItem('jrNbs', JSON.stringify(list)); }
+function addNb(nb)      { const l=getNbs(); const i=l.findIndex(n=>n.title===nb.title); if(i>=0)l.splice(i,1); l.unshift(nb); saveNbs(l); }
+function delNb(id)      { saveNbs(getNbs().filter(n=>n.id!==id)); }
+
+// ════════════════════════════════════════════════════════
+//  PARSER
+//  Reads the standardised NotebookLM format.
+//  Extracts per-sentence: 原文, 译文, 句式结构骨架, 单词逐击
+// ════════════════════════════════════════════════════════
+
+function parseVocabLine(raw) {
+  // Strip all leading whitespace + bullet chars (* • ·)
+  const s = raw.trim().replace(/^[*•·\s•]+/, '').trim();
+  // Skip blank lines and section headers
+  if (!s || s.startsWith('【') || s.startsWith('[') || s.startsWith('📌')) return null;
+
+  // Pattern: word（reading） [pos]：meaning
+  //   word    = greedy up to （, space, ：, or [
+  //   reading = optional, inside （ ）
+  //   pos     = optional, inside [ ]
+  //   meaning = optional, after ：
+  const m = s.match(/^([^\s（：:【\[]+)(?:（([^）]+)）)?\s*(?:\[([^\]]+)\])?\s*(?:[：:]\s*(.+))?$/);
+  if (!m) return null;
+
+  return {
+    word:    m[1],
+    reading: m[2] || m[1],   // if no （）, reading = word itself (kana/particle)
+    pos:     m[3] || '',
+    meaning: m[4] ? m[4].replace(/[。.]+$/, '').trim() : '',
+  };
+}
+
+function parseNotes(raw) {
+  // ── Source / title from 【内容来源】
+  let source = '', title = '';
+  const srcM = raw.match(/【内容来源】\s*[《〈「]?([^》〉」\n\-－]+)[》〉」]?\s*[-－]?\s*([^\n]*)/);
+  if (srcM) {
+    source = srcM[1].trim();
+    title  = srcM[2].trim() || source;
+  }
+  if (!title) title = '無題 · ' + new Date().toLocaleDateString('ja-JP');
+
+  // ── Split into [第N句] blocks
+  const blocks = [...raw.matchAll(/\[第\d+句\]([\s\S]*?)(?=\[第\d+句\]|$)/g)];
+  if (!blocks.length) return null;
+
+  const sentences = [];
+
+  for (const block of blocks) {
+    const text = block[1];
+
+    // 【原文】
+    const jpM = text.match(/【原文】[：:]\s*(.+?)(?:\n|$)/);
+    if (!jpM) continue;
+    const jp = jpM[1].trim();
+
+    // 【译文】
+    const cnM = text.match(/【译文】[：:]\s*(.+?)(?:\n|$)/);
+    const translation = cnM ? cnM[1].trim() : '';
+
+    // 【🧱 句式结构骨架】 — line-by-line to avoid regex overrun
+    let grammar = '';
+    for (const line of text.split('\n')) {
+      if (line.includes('句式结构骨架')) {
+        const gM = line.match(/句式结构骨架[^：:]*[：:]\s*(.+)$/);
+        if (gM) { grammar = gM[1].trim(); break; }
+      }
+    }
+
+    // 【🔍 单词逐击】 — collect bullet lines until next 【 section
+    const tokens = [];
+    let inVocab = false;
+    for (const line of text.split('\n')) {
+      if (line.includes('单词逐击'))   { inVocab = true; continue; }
+      if (!inVocab) continue;
+      // Stop when we hit a new section header (line that contains 【 after optional * whitespace)
+      if (/^\s*[*•]?\s*【/.test(line)) { break; }
+      const tok = parseVocabLine(line);
+      if (tok) tokens.push(tok);
+    }
+
+    sentences.push({ jp, translation, grammar, tokens });
+  }
+
+  if (!sentences.length) return null;
+
+  return {
+    id:    Date.now().toString(),
+    title: title.length > 60 ? title.slice(0, 60) + '…' : title,
+    source,
+    date:  new Date().toISOString(),
+    sentences,
+  };
+}
+
+// ════════════════════════════════════════════════════════
+//  TOKENISER — sentence-driven
+//
+//  Walk the sentence left→right.
+//  At each position try longest match (up to MAX chars) against
+//  the token set built from this sentence's 单词逐击 list.
+//  This is order-independent: token list order doesn't matter.
+// ════════════════════════════════════════════════════════
+
+const MAX_WORD = 8;
+
+function buildTokenMap(tokens) {
+  // Map word → token data. Duplicate words (e.g. の) map to the same entry.
+  const map = new Map();
+  for (const t of tokens) {
+    if (!map.has(t.word)) map.set(t.word, t);
+  }
+  return map;
+}
+
+function segmentSentence(jp, tokens) {
+  const map   = buildTokenMap(tokens);
+  const result = [];
+  let i = 0;
+
+  while (i < jp.length) {
+    let matched = false;
+    // Try longest match first
+    for (let len = Math.min(MAX_WORD, jp.length - i); len >= 1; len--) {
+      const candidate = jp.slice(i, i + len);
+      if (map.has(candidate)) {
+        result.push({ type: 'word', ...map.get(candidate) });
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // Unmatched character — punctuation or particle not in notes
+      // Merge consecutive unmatched chars into one punct token
+      if (result.length && result[result.length - 1].type === 'punct') {
+        result[result.length - 1].word += jp[i];
+      } else {
+        result.push({ type: 'punct', word: jp[i] });
+      }
+      i++;
+    }
+  }
+  return result;
+}
+
+// ════════════════════════════════════════════════════════
+//  RENDER READER
+// ════════════════════════════════════════════════════════
+
+let currentNb     = null;
+let currentTapped = null;
+
+function renderReader(nb) {
+  currentNb = nb;
+
+  document.getElementById('reader-source').textContent = nb.source || '';
+  document.getElementById('reader-title').textContent  = nb.title;
+  document.getElementById('reader-stats').textContent  =
+    nb.sentences.length + ' sentences · ' + new Date(nb.date).toLocaleDateString('ja-JP');
+
+  const list = document.getElementById('s-list');
+  list.innerHTML = '';
+
+  nb.sentences.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 's-card';
+
+    // Sentence number
+    const num = document.createElement('div');
+    num.className = 's-num';
+    num.textContent = '第 ' + (i + 1) + ' 句';
+    card.appendChild(num);
+
+    // Japanese text — segmented
+    const jpDiv = document.createElement('div');
+    jpDiv.className = 's-jp';
+
+    const segs = segmentSentence(s.jp, s.tokens);
+    segs.forEach(seg => {
+      if (seg.type === 'punct') {
+        jpDiv.appendChild(document.createTextNode(seg.word));
+      } else {
+        const span = document.createElement('span');
+        span.className = 'w';
+        span.textContent = seg.word;
+        span.dataset.word    = seg.word;
+        span.dataset.reading = seg.reading;
+        span.dataset.pos     = seg.pos;
+        span.dataset.meaning = seg.meaning;
+        span.addEventListener('click', () => onWordTap(span));
+        jpDiv.appendChild(span);
+      }
+    });
+    card.appendChild(jpDiv);
+
+    // Translation
+    if (s.translation) {
+      const tr = document.createElement('div');
+      tr.className = 's-tr';
+      tr.textContent = s.translation;
+      card.appendChild(tr);
+    }
+
+    // Grammar structure
+    if (s.grammar) {
+      const gr = document.createElement('div');
+      gr.className = 's-grammar';
+      gr.innerHTML =
+        '<span class="grammar-label">Structure</span>' +
+        '<span class="grammar-text">' + esc(s.grammar) + '</span>';
+      card.appendChild(gr);
+    }
+
+    list.appendChild(card);
+  });
+
+  document.getElementById('tab-reader').style.display = '';
+  showPage('reader');
+}
+
+// ════════════════════════════════════════════════════════
+//  WORD TAP → BOTTOM SHEET
+// ════════════════════════════════════════════════════════
+
+function onWordTap(span) {
+  if (currentTapped === span) { closeSheet(); return; }
+  if (currentTapped) currentTapped.classList.remove('tapped');
+  span.classList.add('tapped');
+  currentTapped = span;
+
+  const w  = span.dataset.word;
+  const r  = span.dataset.reading;
+  const p  = span.dataset.pos;
+  const mn = span.dataset.meaning;
+
+  const showReading = r && r !== w;
+
+  document.getElementById('sheet-content').innerHTML =
+    '<div class="sheet-hero">' +
+      '<div class="sh-word">'    + esc(w) + '</div>' +
+      (showReading ? '<div class="sh-reading">' + esc(r) + '</div>' : '') +
+      '<div class="sh-badges">' +
+        (p  ? '<span class="sh-badge badge-pos">' + esc(p) + '</span>' : '') +
+        (!p && !mn ? '<span class="sh-badge badge-dim">No notes data</span>' : '') +
+      '</div>' +
+    '</div>' +
+    (mn ?
+      '<div class="sh-section">' +
+        '<div class="sh-label">Meaning</div>' +
+        '<div class="sh-meaning">' + esc(mn) + '</div>' +
+      '</div>' : '') +
+    (!mn && !p ?
+      '<div class="sh-section">' +
+        '<div class="sh-note" style="color:var(--ink-soft)">This character has no entry in your notes for this sentence.</div>' +
+      '</div>' : '');
+
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('backdrop').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  if (currentTapped) { currentTapped.classList.remove('tapped'); currentTapped = null; }
+}
+
+// ════════════════════════════════════════════════════════
+//  NOTEBOOKS LIST
+// ════════════════════════════════════════════════════════
+
+function renderNbList() {
+  const listEl  = document.getElementById('nb-list');
+  const emptyEl = document.getElementById('nb-empty');
+  const nbs     = getNbs();
+  listEl.innerHTML = '';
+
+  if (!nbs.length) { emptyEl.style.display = 'block'; return; }
+  emptyEl.style.display = 'none';
+
+  nbs.forEach(nb => {
+    const card = document.createElement('div');
+    card.className = 'nb-card';
+    card.innerHTML =
+      '<div class="nb-title">'  + esc(nb.title) + '</div>' +
+      '<div class="nb-meta">' +
+        '<span class="nb-meta-item">📖 ' + nb.sentences.length + ' sentences</span>' +
+        '<span class="nb-meta-item">🗓 ' + new Date(nb.date).toLocaleDateString('ja-JP') + '</span>' +
+      '</div>' +
+      (nb.source ? '<div class="nb-source">' + esc(nb.source) + '</div>' : '') +
+      '<button class="nb-del" onclick="handleDel(event,\'' + nb.id + '\')">✕</button>';
+    card.addEventListener('click', () => renderReader(nb));
+    listEl.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  ACTIONS
+// ════════════════════════════════════════════════════════
+
+function handleLoad() {
+  const raw    = document.getElementById('paste-input').value.trim();
+  const errEl  = document.getElementById('parse-err');
+  errEl.style.display = 'none';
+
+  if (!raw) {
+    errEl.textContent   = 'Please paste your notes first.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const nb = parseNotes(raw);
+  if (!nb) {
+    errEl.textContent   = 'No sentences found. Check your notes include [第N句] blocks with 【原文】 and 【🔍 单词逐击】 entries.';
+    errEl.style.display = 'block'; return;
+  }
+
+  addNb(nb);
+  document.getElementById('paste-input').value = '';
+  toast('Saved — ' + nb.sentences.length + ' sentences');
+  renderReader(nb);
+}
+
+function handleDel(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this notebook?')) return;
+  delNb(id);
+  if (currentNb && currentNb.id === id) {
+    currentNb = null;
+    document.getElementById('tab-reader').style.display = 'none';
+  }
+  renderNbList();
+}
+
+// ════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const t = document.getElementById('tab-' + name);
+  if (t) t.classList.add('active');
+  closeSheet();
+  if (name === 'notebooks') renderNbList();
+}
+
+// ════════════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════════════
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  showPage('notebooks');
+
+  // Swipe down on sheet to close
+  const sheet = document.getElementById('sheet');
+  let ty0 = 0;
+  sheet.addEventListener('touchstart', e => { ty0 = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchmove',  e => { if (e.touches[0].clientY - ty0 > 55) closeSheet(); }, { passive: true });
+});
+</script>
+</body>
+</html>
