@@ -241,6 +241,53 @@ textarea::placeholder { color: #c0bdc8; }
   font-size: 13px; color: var(--red); display: none;
 }
 
+/* Title confirmation box — shown after parsing, before saving */
+.title-confirm {
+  display: none;
+  margin-top: 14px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+}
+.title-confirm-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--red); margin-bottom: 8px;
+}
+.title-input {
+  width: 100%; min-height: unset; height: 44px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 0 12px; font-size: 15px;
+  font-family: 'Shippori Mincho', serif;
+  color: var(--ink); background: var(--paper);
+  outline: none; resize: none;
+  transition: border-color 0.2s; -webkit-appearance: none;
+}
+.title-input:focus { border-color: var(--red); }
+.btn-save {
+  width: 100%; margin-top: 10px; padding: 14px;
+  background: var(--red); color: white; border: none;
+  border-radius: var(--radius-sm); font-size: 15px;
+  font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
+  cursor: pointer; -webkit-appearance: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: opacity 0.15s;
+}
+.btn-save:active { opacity: 0.75; }
+
+/* Speaker button inside word sheet */
+.speak-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: none; border: 1.5px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.8); border-radius: 20px;
+  padding: 6px 14px; font-size: 13px;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer; margin-top: 12px;
+  -webkit-appearance: none; transition: background 0.15s;
+}
+.speak-btn:active { background: rgba(255,255,255,0.12); }
+
 /* ══════════════════════════════════════
    READER PAGE
 ══════════════════════════════════════ */
@@ -438,7 +485,14 @@ textarea::placeholder { color: #c0bdc8; }
   <textarea id="paste-input"
     placeholder="Paste your NotebookLM notes here…&#10;&#10;📝 【内容来源】…&#10;[第1句]&#10;* 【原文】：…&#10;* 【🔍 单词逐击】：&#10;   * 江戸時代（えどじだい） [名词]：…"></textarea>
   <div id="parse-err" class="parse-err"></div>
-  <button class="btn-load" onclick="handleLoad()">Load into Reader →</button>
+  <button class="btn-load" id="btn-parse" onclick="handleParse()">Preview Notes →</button>
+
+  <!-- Shown after parsing — lets you set a custom title before saving -->
+  <div class="title-confirm" id="title-confirm">
+    <div class="title-confirm-label">Title for this notebook</div>
+    <input class="title-input" id="title-input" type="text" placeholder="e.g. N2 Reading · Chapter 2"/>
+    <button class="btn-save" onclick="handleSave()">Save &amp; Open →</button>
+  </div>
 </div>
 
 <!-- ════ PAGE: READER ════ -->
@@ -729,6 +783,7 @@ function onWordTap(span) {
         (p  ? '<span class="sh-badge badge-pos">' + esc(p) + '</span>' : '') +
         (!p && !mn ? '<span class="sh-badge badge-dim">No notes data</span>' : '') +
       '</div>' +
+      '<button class="speak-btn" onclick="speak(\'' + esc(w) + '\')">&#128264; Hear it</button>' +
     '</div>' +
     (mn ?
       '<div class="sh-section">' +
@@ -783,26 +838,58 @@ function renderNbList() {
 //  ACTIONS
 // ════════════════════════════════════════════════════════
 
-function handleLoad() {
-  const raw    = document.getElementById('paste-input').value.trim();
-  const errEl  = document.getElementById('parse-err');
+// Holds the parsed notebook between step 1 and step 2
+let pendingNb = null;
+
+// STEP 1 — parse notes and show title field
+function handleParse() {
+  const raw   = document.getElementById('paste-input').value.trim();
+  const errEl = document.getElementById('parse-err');
   errEl.style.display = 'none';
+  document.getElementById('title-confirm').style.display = 'none';
 
   if (!raw) {
-    errEl.textContent   = 'Please paste your notes first.';
+    errEl.textContent = 'Please paste your notes first.';
     errEl.style.display = 'block'; return;
   }
 
   const nb = parseNotes(raw);
   if (!nb) {
-    errEl.textContent   = 'No sentences found. Check your notes include [第N句] blocks with 【原文】 and 【🔍 单词逐击】 entries.';
+    errEl.textContent = 'No sentences found. Check your notes include [第N句] blocks with 【原文】 and 【🔍 单词逐击】 entries.';
     errEl.style.display = 'block'; return;
   }
 
-  addNb(nb);
+  // Store for step 2, pre-fill title with auto-extracted value
+  pendingNb = nb;
+  document.getElementById('title-input').value = nb.title;
+  document.getElementById('title-confirm').style.display = 'block';
+  document.getElementById('title-input').focus();
+}
+
+// STEP 2 — apply custom title and save
+function handleSave() {
+  if (!pendingNb) return;
+  const custom = document.getElementById('title-input').value.trim();
+  if (custom) pendingNb.title = custom;
+  addNb(pendingNb);
   document.getElementById('paste-input').value = '';
-  toast('Saved — ' + nb.sentences.length + ' sentences');
-  renderReader(nb);
+  document.getElementById('title-confirm').style.display = 'none';
+  toast('Saved — ' + pendingNb.sentences.length + ' sentences');
+  renderReader(pendingNb);
+  pendingNb = null;
+}
+
+// ── Text-to-speech — Web Speech API, built into iOS Safari
+// No internet required — uses the Japanese voice already on the device.
+// utt.lang = 'ja-JP' tells iOS which voice to use.
+// utt.rate = 0.9 slows it slightly for clearer study listening.
+function speak(text) {
+  if (!window.speechSynthesis) { toast('Speech not supported here'); return; }
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang  = 'ja-JP';
+  utt.rate  = 0.9;
+  window.speechSynthesis.speak(utt);
 }
 
 function handleDel(e, id) {
